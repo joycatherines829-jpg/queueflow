@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e23744">
+<meta name="color-scheme" content="light">
+<link rel="manifest" href="manifest.json">
+<title>QueueFlow</title>
+<style>
+:root{--bg:#f4f4f6;--card:#fff;--ink:#1c1c1e;--mute:#696972;--line:#e8e8ec;--brand:#e23744;--brand-ink:#fff;--tilebg:#fdecee;
+--low:#1f9d55;--mod:#b86e00;--high:#d23a2f;--lowbg:#e3f4ea;--modbg:#fbefd9;--highbg:#fbe4e1;--ratebg:#1f9d55;--nav:60px;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,Segoe UI,Roboto,sans-serif;padding-bottom:calc(var(--nav) + 90px)}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px;border-radius:12px}
+button.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:700}
+button:focus-visible,input:focus-visible,select:focus-visible,[data-open]:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+svg{display:block}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:16px}
+/* header */
+header{background:var(--card);position:sticky;top:env(safe-area-inset-top,0px);z-index:6;padding-block:12px 12px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.loc{display:flex;align-items:center;gap:8px;min-width:0}
+.loc svg{color:var(--brand);flex:none}
+.loc b{font-size:17px;display:block;line-height:1.1}
+.loc span{font-size:12px;color:var(--mute)}
+.live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);padding:6px 10px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--low);animation:p 1.6s infinite}
+.dot.off{background:var(--mute);animation:none}
+@keyframes p{50%{opacity:.25}}
+.search{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:14px;padding:0 12px;background:var(--bg);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.search svg{color:var(--brand);flex:none}
+.search input{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;padding:12px 0}
+.search input:focus-visible{outline:none}
+.search:focus-within{border-color:var(--brand)}
+/* tiles */
+h2.sec{font-size:17px;margin:18px 0 10px;display:flex;align-items:baseline;gap:8px}
+h2.sec small{font-size:12px;font-weight:400;color:var(--mute)}
+.tiles{display:flex;gap:18px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:none}
+.tile{flex:0 0 auto;width:78px;text-align:center;background:none;border:0;padding:0;color:var(--mute);font-size:13px}
+.tile .ic{width:68px;height:68px;border-radius:50%;background:var(--tilebg);display:grid;place-items:center;margin:0 auto 6px;border:2px solid transparent;color:var(--brand)}
+.tile.on{color:var(--ink);font-weight:700}
+.tile.on .ic{border-color:var(--brand)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none;align-items:center}
+.chip{flex:0 0 auto;border-radius:10px;padding:7px 12px;font-size:14px}
+.chip.on{background:var(--tilebg);border-color:var(--brand);color:var(--brand);font-weight:600}
+select.chip{background:var(--card);color:var(--ink);border:1px solid var(--line);font:inherit;font-size:14px;appearance:auto}
+/* place cards */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.pcard{background:var(--card);border-radius:18px;overflow:hidden;border:1px solid var(--line);cursor:pointer;display:flex;flex-direction:column;min-width:0}
+.hero{position:relative;height:150px;overflow:hidden}
+.hero svg.art{position:absolute;inset:0;width:100%;height:100%}
+.hero .scrim{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.5),transparent 60%)}
+.badge{position:absolute;left:10px;top:10px;background:rgba(255,255,255,.94);color:#1c1c1e;border-radius:8px;padding:3px 9px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px}
+.badge i{width:8px;height:8px;border-radius:50%;background:#1f9d55}
+.badge.moderate i{background:#d98a00}.badge.high i{background:#d23a2f}
+.eta{position:absolute;right:10px;bottom:10px;background:#fff;color:#1c1c1e;border-radius:99px;padding:3px 11px;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.hname{position:absolute;left:12px;bottom:10px;color:#fff;font-weight:700;font-size:13px;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+.pbody{padding:12px 14px 12px;display:flex;flex-direction:column;gap:3px}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+h3{margin:0;font-size:17px;overflow-wrap:anywhere;line-height:1.25}
+.sub{color:var(--mute);font-size:13px}
+.rate{background:var(--ratebg);color:#fff;font-weight:700;font-size:13px;padding:2px 8px;border-radius:8px;font-variant-numeric:tabular-nums;white-space:nowrap;flex:none}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;padding-top:10px;border-top:1px dashed var(--line);font-size:13px}
+.meta b{font-variant-numeric:tabular-nums}
+.strip{padding:8px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;background:var(--lowbg);color:var(--low)}
+.strip.up{background:var(--highbg);color:var(--high)}
+.strip.flat{background:var(--bg);color:var(--mute)}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:var(--low);transition:width .6s}
+.bar.moderate i{background:var(--mod)}.bar.high i{background:var(--high)}
+svg.spark{width:100%;height:36px}
+.empty{grid-column:1/-1;text-align:center;color:var(--mute);padding:40px 0}
+/* ticket */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.panel.center{align-items:center;text-align:center}
+.token{font-size:60px;font-weight:800;letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--brand);line-height:1}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center;width:100%}
+.stats b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.stats span{color:var(--mute);font-size:12px}
+.steps{display:flex;width:100%;gap:6px}
+.step{flex:1;font-size:11px;color:var(--mute);text-align:center}
+.step i{display:block;height:5px;border-radius:99px;background:var(--line);margin-bottom:6px}
+.step.on{color:var(--ink);font-weight:600}.step.on i{background:var(--brand)}
+.banner{padding:12px;border-radius:12px;background:var(--lowbg);color:var(--low);font-weight:700;text-align:center;width:100%}
+.mute{color:var(--mute)}
+.staff-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tag{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-variant-numeric:tabular-nums}
+/* tracker bar and bottom nav */
+#tbar{position:fixed;left:12px;right:12px;bottom:calc(var(--nav) + env(safe-area-inset-bottom,0px) + 10px);max-width:560px;margin-inline:auto;z-index:8;background:var(--brand);color:var(--brand-ink);border:0;border-radius:14px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+#tbar[hidden]{display:none}
+#tbar b{font-size:17px;font-variant-numeric:tabular-nums}
+#tbar small{display:block;opacity:.9;font-size:12px}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom,0px)}
+.bnav button{flex:1;max-width:200px;height:var(--nav);border:0;border-radius:0;background:none;color:var(--mute);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;padding:0}
+.bnav button.on{color:var(--brand);font-weight:700}
+/* sheet */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet[hidden]{display:none}
+.sheetbox{background:var(--card);border-radius:22px 22px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));max-width:520px;width:100%;max-height:92%;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.sheetbox.full{padding:0 0 env(safe-area-inset-bottom,0px)}
+.sheetbox.mid{align-items:center;text-align:center}
+.dhero{position:relative;height:170px;flex:none;overflow:hidden;border-radius:22px 22px 0 0}
+.dhero svg.art{position:absolute;inset:0;width:100%;height:100%}
+.close{position:absolute;right:12px;top:12px;width:34px;height:34px;padding:0;border-radius:50%;background:rgba(255,255,255,.94);color:#1c1c1e;border:0;display:grid;place-items:center}
+.dbody{padding:4px 20px 20px;display:flex;flex-direction:column;gap:12px}
+h2.dt{margin:0;font-size:21px}
+.btns{display:flex;gap:8px}
+.btns .primary{flex:1;padding:12px}
+#qr{background:#fff;padding:10px;border-radius:10px;min-height:40px}
+.small{font-size:12px;overflow-wrap:anywhere}
+input[type=text],input[type=number],input[type=password]{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:inherit;width:100%}
+.stepper{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.step2{display:flex;gap:6px;align-items:center}
+.step2 button{width:42px;padding:9px 0;font-weight:700;font-size:16px}
+.step2 input{width:76px;text-align:center;padding:9px}
+.note{font-size:12px;color:var(--mute);margin:0}
+.manual{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:var(--tilebg);color:var(--brand);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+.manual button{padding:5px 10px;font-size:12px}
+ .leaflet-pane, .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-tile-container, .leaflet-pane > svg, .leaflet-pane > canvas, .leaflet-zoom-box, .leaflet-image-layer, .leaflet-layer { position: absolute; left: 0; top: 0; } .leaflet-container { overflow: hidden; } .leaflet-tile, .leaflet-marker-icon, .leaflet-marker-shadow { -webkit-user-select: none; -moz-user-select: none; user-select: none; -webkit-user-drag: none; } .leaflet-tile::selection { background: transparent; } .leaflet-safari .leaflet-tile { image-rendering: -webkit-optimize-contrast; } .leaflet-safari .leaflet-tile-container { width: 1600px; height: 1600px; -webkit-transform-origin: 0 0; } .leaflet-marker-icon, .leaflet-marker-shadow { display: block; } .leaflet-container .leaflet-overlay-pane svg { max-width: none !important; max-height: none !important; } .leaflet-container .leaflet-marker-pane img, .leaflet-container .leaflet-shadow-pane img, .leaflet-container .leaflet-tile-pane img, .leaflet-container img.leaflet-image-layer, .leaflet-container .leaflet-tile { max-width: none !important; max-height: none !important; width: auto; padding: 0; } .leaflet-container img.leaflet-tile { mix-blend-mode: plus-lighter; } .leaflet-container.leaflet-touch-zoom { -ms-touch-action: pan-x pan-y; touch-action: pan-x pan-y; } .leaflet-container.leaflet-touch-drag { -ms-touch-action: pinch-zoom; touch-action: none; touch-action: pinch-zoom; } .leaflet-container.leaflet-touch-drag.leaflet-touch-zoom { -ms-touch-action: none; touch-action: none; } .leaflet-container { -webkit-tap-highlight-color: transparent; } .leaflet-container a { -webkit-tap-highlight-color: rgba(51, 181, 229, 0.4); } .leaflet-tile { filter: inherit; visibility: hidden; } .leaflet-tile-loaded { visibility: inherit; } .leaflet-zoom-box { width: 0; height: 0; -moz-box-sizing: border-box; box-sizing: border-box; z-index: 800; } .leaflet-overlay-pane svg { -moz-user-select: none; } .leaflet-pane { z-index: 400; } .leaflet-tile-pane { z-index: 200; } .leaflet-overlay-pane { z-index: 400; } .leaflet-shadow-pane { z-index: 500; } .leaflet-marker-pane { z-index: 600; } .leaflet-tooltip-pane { z-index: 650; } .leaflet-popup-pane { z-index: 700; } .leaflet-map-pane canvas { z-index: 100; } .leaflet-map-pane svg { z-index: 200; } .leaflet-vml-shape { width: 1px; height: 1px; } .lvml { behavior: url(#default#VML); display: inline-block; position: absolute; } .leaflet-control { position: relative; z-index: 800; pointer-events: visiblePainted; pointer-events: auto; } .leaflet-top, .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; } .leaflet-top { top: 0; } .leaflet-right { right: 0; } .leaflet-bottom { bottom: 0; } .leaflet-left { left: 0; } .leaflet-control { float: left; clear: both; } .leaflet-right .leaflet-control { float: right; } .leaflet-top .leaflet-control { margin-top: 10px; } .leaflet-bottom .leaflet-control { margin-bottom: 10px; } .leaflet-left .leaflet-control { margin-left: 10px; } .leaflet-right .leaflet-control { margin-right: 10px; } .leaflet-fade-anim .leaflet-popup { opacity: 0; -webkit-transition: opacity 0.2s linear; -moz-transition: opacity 0.2s linear; transition: opacity 0.2s linear; } .leaflet-fade-anim .leaflet-map-pane .leaflet-popup { opacity: 1; } .leaflet-zoom-animated { -webkit-transform-origin: 0 0; -ms-transform-origin: 0 0; transform-origin: 0 0; } svg.leaflet-zoom-animated { will-change: transform; } .leaflet-zoom-anim .leaflet-zoom-animated { -webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1); -moz-transition: -moz-transform 0.25s cubic-bezier(0,0,0.25,1); transition: transform 0.25s cubic-bezier(0,0,0.25,1); } .leaflet-zoom-anim .leaflet-tile, .leaflet-pan-anim .leaflet-tile { -webkit-transition: none; -moz-transition: none; transition: none; } .leaflet-zoom-anim .leaflet-zoom-hide { visibility: hidden; } .leaflet-interactive { cursor: pointer; } .leaflet-grab { cursor: -webkit-grab; cursor: -moz-grab; cursor: grab; } .leaflet-crosshair, .leaflet-crosshair .leaflet-interactive { cursor: crosshair; } .leaflet-popup-pane, .leaflet-control { cursor: auto; } .leaflet-dragging .leaflet-grab, .leaflet-dragging .leaflet-grab .leaflet-interactive, .leaflet-dragging .leaflet-marker-draggable { cursor: move; cursor: -webkit-grabbing; cursor: -moz-grabbing; cursor: grabbing; } .leaflet-marker-icon, .leaflet-marker-shadow, .leaflet-image-layer, .leaflet-pane > svg path, .leaflet-tile-container { pointer-events: none; } .leaflet-marker-icon.leaflet-interactive, .leaflet-image-layer.leaflet-interactive, .leaflet-pane > svg path.leaflet-interactive, svg.leaflet-image-layer.leaflet-interactive path { pointer-events: visiblePainted; pointer-events: auto; } .leaflet-container { background: #ddd; outline-offset: 1px; } .leaflet-container a { color: #0078A8; } .leaflet-zoom-box { border: 2px dotted #38f; background: rgba(255,255,255,0.5); } .leaflet-container { font-family: "Helvetica Neue", Arial, Helvetica, sans-serif; font-size: 12px; font-size: 0.75rem; line-height: 1.5; } .leaflet-bar { box-shadow: 0 1px 5px rgba(0,0,0,0.65); border-radius: 4px; } .leaflet-bar a { background-color: #fff; border-bottom: 1px solid #ccc; width: 26px; height: 26px; line-height: 26px; display: block; text-align: center; text-decoration: none; color: black; } .leaflet-bar a, .leaflet-control-layers-toggle { background-position: 50% 50%; background-repeat: no-repeat; display: block; } .leaflet-bar a:hover, .leaflet-bar a:focus { background-color: #f4f4f4; } .leaflet-bar a:first-child { border-top-left-radius: 4px; border-top-right-radius: 4px; } .leaflet-bar a:last-child { border-bottom-left-radius: 4px; border-bottom-right-radius: 4px; border-bottom: none; } .leaflet-bar a.leaflet-disabled { cursor: default; background-color: #f4f4f4; color: #bbb; } .leaflet-touch .leaflet-bar a { width: 30px; height: 30px; line-height: 30px; } .leaflet-touch .leaflet-bar a:first-child { border-top-left-radius: 2px; border-top-right-radius: 2px; } .leaflet-touch .leaflet-bar a:last-child { border-bottom-left-radius: 2px; border-bottom-right-radius: 2px; } .leaflet-control-zoom-in, .leaflet-control-zoom-out { font: bold 18px 'Lucida Console', Monaco, monospace; text-indent: 1px; } .leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out { font-size: 22px; } .leaflet-control-layers { box-shadow: 0 1px 5px rgba(0,0,0,0.4); background: #fff; border-radius: 5px; } .leaflet-touch .leaflet-control-layers-toggle { width: 44px; height: 44px; } .leaflet-control-layers .leaflet-control-layers-list, .leaflet-control-layers-expanded .leaflet-control-layers-toggle { display: none; } .leaflet-control-layers-expanded .leaflet-control-layers-list { display: block; position: relative; } .leaflet-control-layers-expanded { padding: 6px 10px 6px 6px; color: #333; background: #fff; } .leaflet-control-layers-scrollbar { overflow-y: scroll; overflow-x: hidden; padding-right: 5px; } .leaflet-control-layers-selector { margin-top: 2px; position: relative; top: 1px; } .leaflet-control-layers label { display: block; font-size: 13px; font-size: 1.08333em; } .leaflet-control-layers-separator { height: 0; border-top: 1px solid #ddd; margin: 5px -10px 5px -6px; } .leaflet-container .leaflet-control-attribution { background: #fff; background: rgba(255, 255, 255, 0.8); margin: 0; } .leaflet-control-attribution, .leaflet-control-scale-line { padding: 0 5px; color: #333; line-height: 1.4; } .leaflet-control-attribution a { text-decoration: none; } .leaflet-control-attribution a:hover, .leaflet-control-attribution a:focus { text-decoration: underline; } .leaflet-attribution-flag { display: inline !important; vertical-align: baseline !important; width: 1em; height: 0.6669em; } .leaflet-left .leaflet-control-scale { margin-left: 5px; } .leaflet-bottom .leaflet-control-scale { margin-bottom: 5px; } .leaflet-control-scale-line { border: 2px solid #777; border-top: none; line-height: 1.1; padding: 2px 5px 1px; white-space: nowrap; -moz-box-sizing: border-box; box-sizing: border-box; background: rgba(255, 255, 255, 0.8); text-shadow: 1px 1px #fff; } .leaflet-control-scale-line:not(:first-child) { border-top: 2px solid #777; border-bottom: none; margin-top: -2px; } .leaflet-control-scale-line:not(:first-child):not(:last-child) { border-bottom: 2px solid #777; } .leaflet-touch .leaflet-control-attribution, .leaflet-touch .leaflet-control-layers, .leaflet-touch .leaflet-bar { box-shadow: none; } .leaflet-touch .leaflet-control-layers, .leaflet-touch .leaflet-bar { border: 2px solid rgba(0,0,0,0.2); background-clip: padding-box; } .leaflet-popup { position: absolute; text-align: center; margin-bottom: 20px; } .leaflet-popup-content-wrapper { padding: 1px; text-align: left; border-radius: 12px; } .leaflet-popup-content { margin: 13px 24px 13px 20px; line-height: 1.3; font-size: 13px; font-size: 1.08333em; min-height: 1px; } .leaflet-popup-content p { margin: 17px 0; margin: 1.3em 0; } .leaflet-popup-tip-container { width: 40px; height: 20px; position: absolute; left: 50%; margin-top: -1px; margin-left: -20px; overflow: hidden; pointer-events: none; } .leaflet-popup-tip { width: 17px; height: 17px; padding: 1px; margin: -10px auto 0; pointer-events: auto; -webkit-transform: rotate(45deg); -moz-transform: rotate(45deg); -ms-transform: rotate(45deg); transform: rotate(45deg); } .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: white; color: #333; box-shadow: 0 3px 14px rgba(0,0,0,0.4); } .leaflet-container a.leaflet-popup-close-button { position: absolute; top: 0; right: 0; border: none; text-align: center; width: 24px; height: 24px; font: 16px/24px Tahoma, Verdana, sans-serif; color: #757575; text-decoration: none; background: transparent; } .leaflet-container a.leaflet-popup-close-button:hover, .leaflet-container a.leaflet-popup-close-button:focus { color: #585858; } .leaflet-popup-scrolled { overflow: auto; } .leaflet-oldie .leaflet-popup-content-wrapper { -ms-zoom: 1; } .leaflet-oldie .leaflet-popup-tip { width: 24px; margin: 0 auto; -ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)"; filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678); } .leaflet-oldie .leaflet-control-zoom, .leaflet-oldie .leaflet-control-layers, .leaflet-oldie .leaflet-popup-content-wrapper, .leaflet-oldie .leaflet-popup-tip { border: 1px solid #999; } .leaflet-div-icon { background: #fff; border: 1px solid #666; } .leaflet-tooltip { position: absolute; padding: 6px; background-color: #fff; border: 1px solid #fff; border-radius: 3px; color: #222; white-space: nowrap; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; pointer-events: none; box-shadow: 0 1px 3px rgba(0,0,0,0.4); } .leaflet-tooltip.leaflet-interactive { cursor: pointer; pointer-events: auto; } .leaflet-tooltip-top:before, .leaflet-tooltip-bottom:before, .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { position: absolute; pointer-events: none; border: 6px solid transparent; background: transparent; content: ""; } .leaflet-tooltip-bottom { margin-top: 6px; } .leaflet-tooltip-top { margin-top: -6px; } .leaflet-tooltip-bottom:before, .leaflet-tooltip-top:before { left: 50%; margin-left: -6px; } .leaflet-tooltip-top:before { bottom: 0; margin-bottom: -12px; border-top-color: #fff; } .leaflet-tooltip-bottom:before { top: 0; margin-top: -12px; margin-left: -6px; border-bottom-color: #fff; } .leaflet-tooltip-left { margin-left: -6px; } .leaflet-tooltip-right { margin-left: 6px; } .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { top: 50%; margin-top: -6px; } .leaflet-tooltip-left:before { right: 0; margin-right: -12px; border-left-color: #fff; } .leaflet-tooltip-right:before { left: 0; margin-left: -12px; border-right-color: #fff; } @media print { .leaflet-control { -webkit-print-color-adjust: exact; print-color-adjust: exact; } } 
+.leaflet-container{font:inherit;background:#e9edf0}
+#mapbox{position:relative;z-index:0;isolation:isolate;border:1px solid var(--line);border-radius:16px;overflow:hidden;background-color:#e9edf0;background-image:linear-gradient(#d9dee2 1px,transparent 1px),linear-gradient(90deg,#d9dee2 1px,transparent 1px);background-size:40px 40px}
+#lmap{height:min(62vh,560px);min-height:340px;width:100%;background:transparent}
+#mapnote{position:absolute;left:10px;bottom:28px;z-index:500;background:var(--card);color:var(--mute);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;max-width:70%}
+#mapnote[hidden]{display:none}
+.qmk{background:none;border:0}
+.mk{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);background:var(--low);font-variant-numeric:tabular-nums}
+.mk.moderate{background:var(--mod)}.mk.high{background:var(--high)}
+.mpop{display:flex;flex-direction:column;gap:6px;min-width:170px}
+.mpop b{font-size:15px}
+.mpop .sub{font-size:12px}
+.mpop .btns button{padding:6px 10px;font-size:13px;border-radius:10px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--mute);align-items:center}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+@media(prefers-reduced-motion:reduce){.dot,.bar i{animation:none;transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div class="loc">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+        <div><b>Chennai</b><span>Pallavaram &middot; queues near you</span></div>
+      </div>
+      <div class="live" aria-label="Live status"><span class="dot"></span><span id="simTxt">Live</span></div>
+    </div>
+    <label class="search"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input type="search" id="search" placeholder="Search restaurant, office or shop" aria-label="Search places"></label>
+  </div>
+</header>
+
+<main class="wrap">
+<div class="note" style="margin:12px 0 0;padding:10px 12px;background:var(--tilebg);color:var(--ink);border-radius:12px;font-size:13px">Demo version: queue data lives in this browser only. To try the owner screens, open the Owner tab, pick a place and use the setup code <b>123456</b>.</div>
+  <section id="home">
+    <h2 class="sec">What are you queuing for?</h2>
+    <div class="tiles" id="tiles">
+      <button class="tile on" data-kind="all"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/></svg></span>All</button>
+      <button class="tile" data-kind="restaurant"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10"/><path d="M17 21V3c-2.5 1.5-3.5 4.5-3.5 8H17"/></svg></span>Restaurants</button>
+      <button class="tile" data-kind="government"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5M5 9v9M9.5 9v9M14.5 9v9M19 9v9M3 21h18"/></svg></span>Govt offices</button>
+      <button class="tile" data-kind="shop"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V7a3 3 0 0 1 6 0v1"/></svg></span>Famous shops</button>
+    </div>
+    <div class="chips">
+      <button class="chip" data-flag="quiet">Quiet now</button>
+      <button class="chip" data-flag="top">Rating 4.0+</button>
+      <button class="chip" data-flag="fast">Under 10 min</button>
+      <select id="sort" class="chip" aria-label="Sort places">
+        <option value="wait">Sort: shortest wait</option>
+        <option value="rating">Sort: top rated</option>
+        <option value="name">Sort: A to Z</option>
+      </select>
+    </div>
+    <h2 class="sec"><span id="count">Places</span><small>updating live</small></h2>
+    <div id="list" class="grid"></div>
+  </section>
+  <section id="map" hidden>
+    <h2 class="sec">Live queue map<small id="mapsum"></small></h2>
+    <div class="chips">
+      <button class="chip on" data-kind="all">All</button>
+      <button class="chip" data-kind="restaurant">Restaurants</button>
+      <button class="chip" data-kind="government">Govt offices</button>
+      <button class="chip" data-kind="shop">Famous shops</button>
+    </div>
+    <div id="mapbox"><div id="lmap"></div><div id="mapnote" hidden>Street tiles could not load. The queue bubbles still update live.</div></div>
+    <div class="legend"><span><i style="background:var(--low)"></i>Quiet</span><span><i style="background:var(--mod)"></i>Busy</span><span><i style="background:var(--high)"></i>Crowded</span><span>The number on each bubble is the people waiting now.</span></div>
+  </section>
+  <section id="ticket" hidden></section>
+  <section id="staff" hidden>
+    <h2 class="sec">Owner view<small>call and complete tokens</small></h2>
+    <div id="staffList" class="grid"></div>
+  </section>
+</main>
+
+<button id="tbar" type="button" data-tab="ticket" hidden></button>
+<nav class="bnav" aria-label="Main">
+  <button class="on" data-tab="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v9H4z"/></svg>Discover</button>
+  <button data-tab="map"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4L3 6.5v13L9 17l6 3 6-2.5v-13L15 7z"/><path d="M9 4v13M15 7v13"/></svg>Map</button>
+  <button data-tab="ticket"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8a2 2 0 0 0 2-2h12a2 2 0 0 0 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 0-2 2H6a2 2 0 0 0-2-2v-3a2 2 0 0 0 0-4z" transform="translate(0 -1)"/></svg>My token</button>
+  <button data-tab="staff"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Owner</button>
+</nav>
+<div id="sheet" class="sheet" hidden><div id="sheetbox" class="sheetbox"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+var speed=12, sim=true, tick=0, tickets={};
+var NAMES=['Aarav','Divya','Karthik','Meena','Rohit','Sneha','Vikram','Anjali','Prakash','Lakshmi','Naveen','Kavya','Surya','Priya','Harish','Nithya'];
+function mk(id,name,kind,area,rating,hours,c,avg,l){return {id:id,name:name,kind:kind,area:area,rating:rating,hours:hours,counters:c,avg:avg,lambda:l,prefix:name[0].toUpperCase(),nextNo:1,served:0,waiting:[],serving:[],trend:[],manual:false};}
+var S=[
+mk("saravana-bhavan", "Saravana Bhavan", "restaurant", "T. Nagar", 4.3, "6:30 AM - 10:30 PM", 6, 5.0, 1.2),
+mk("buhari", "Buhari Hotel", "restaurant", "Mount Road", 4.1, "11:00 AM - 11:00 PM", 5, 6.0, 0.9),
+mk("murugan-idli", "Murugan Idli Shop", "restaurant", "Besant Nagar", 4.4, "6:30 AM - 10:00 PM", 4, 4.0, 1.1),
+mk("anjappar", "Anjappar", "restaurant", "Pallavaram", 4.0, "11:30 AM - 10:30 PM", 5, 6.0, 0.8),
+mk("passport", "Regional Passport Office", "government", "Guindy", 3.6, "9:00 AM - 5:00 PM", 4, 9.0, 0.55),
+mk("rto", "RTO Office", "government", "Meenambakkam", 3.4, "10:00 AM - 5:00 PM", 3, 11.0, 0.4),
+mk("aadhaar", "Aadhaar Seva Kendra", "government", "Pallavaram", 3.8, "9:30 AM - 5:30 PM", 3, 8.0, 0.45),
+mk("tneb", "TNEB Billing Office", "government", "Chromepet", 3.5, "10:00 AM - 4:00 PM", 2, 5.0, 0.5),
+mk("registrar", "Sub-Registrar Office", "government", "Tambaram", 3.3, "10:00 AM - 5:45 PM", 2, 14.0, 0.25),
+mk("pothys", "Pothys", "shop", "T. Nagar", 4.2, "9:30 AM - 9:30 PM", 8, 3.0, 2.0),
+mk("nalli", "Nalli Silks", "shop", "T. Nagar", 4.3, "9:30 AM - 9:00 PM", 6, 4.0, 1.4),
+mk("grand-sweets", "Grand Sweets", "shop", "Adyar", 4.5, "9:00 AM - 10:00 PM", 4, 2.0, 1.6)];
+var SETUP='123456',cfails=0,clock=0;
+var LOC={"saravana-bhavan": [13.043, 80.235], "buhari": [13.0644, 80.2707], "murugan-idli": [13.0002, 80.2668], "anjappar": [12.9675, 80.1491], "passport": [13.0067, 80.2206], "rto": [12.989, 80.176], "aadhaar": [12.9702, 80.1512], "tneb": [12.9516, 80.1403], "registrar": [12.9249, 80.1], "pothys": [13.0409, 80.2331], "nalli": [13.0395, 80.2347], "grand-sweets": [13.0067, 80.2575]};
+var saved={};try{saved=JSON.parse(localStorage.getItem('qf_pins')||'{}');}catch(e){}
+S.forEach(function(s){s.pin=saved[s.id]||null;s.fails=0;s.lockUntil=0;s.lat=LOC[s.id][0];s.lng=LOC[s.id][1];});
+function savePins(){var o={};S.forEach(function(s){if(s.pin)o[s.id]=s.pin;});try{localStorage.setItem('qf_pins',JSON.stringify(o));}catch(e){}}
+var sessions={};
+var byId={}; S.forEach(function(s){byId[s.id]=s;});
+function minSince(t){return (Date.now()-t)/(60000/speed);}
+function pad(n){return String(n).padStart(3,'0');}
+function join(s,name){var t={id:Math.random().toString(16).slice(2,10),svc:s.id,name:name,token:s.prefix+pad(s.nextNo++),status:'WAITING',joined:Date.now(),called:0,duration:0};s.waiting.push(t);tickets[t.id]=t;return t;}
+function callNext(s){if(s.serving.length>=s.counters||!s.waiting.length)return null;var t=s.waiting.shift();t.status='SERVING';t.called=Date.now();t.duration=Math.max(1,s.avg*(0.6+Math.random()*0.8));s.serving.push(t);return t;}
+function complete(s,t){var i=s.serving.indexOf(t);if(i<0)return;s.serving.splice(i,1);t.status='DONE';s.served++;s.avg=Math.max(1,0.7*s.avg+0.3*Math.max(0.5,minSince(t.called)));}
+function eta(s,pos){return Math.ceil(Math.ceil(pos/s.counters)*s.avg);}
+function lvl(s,m){var g=s.kind==='government',sh=s.kind==='shop';var a=g?20:sh?6:10,b=g?45:sh?15:25;return m<=a?'low':m<=b?'moderate':'high';}
+function rname(){return NAMES[Math.floor(Math.random()*NAMES.length)];}
+S.forEach(function(s){var n=2+Math.floor(Math.random()*6);for(var i=0;i<n;i++)join(s,rname());while(callNext(s)){}});
+setInterval(function(){tick++;S.forEach(function(s){
+ if(tick%5===0){s.trend.push(s.waiting.length);while(s.trend.length>30)s.trend.shift();}
+ if(!sim||s.manual)return;
+ if(Math.random()<s.lambda*speed/60)join(s,rname());
+ s.serving.slice().forEach(function(t){if(minSince(t.called)>=t.duration)complete(s,t);});
+ while(callNext(s)){}
+});},1000);
+function sj(s){var e=eta(s,s.waiting.length+1);return {claimed:!!s.pin,lat:s.lat,lng:s.lng,manual:s.manual,id:s.id,name:s.name,kind:s.kind,area:s.area,rating:s.rating,hours:s.hours,load:Math.min(100,Math.round(100*(s.waiting.length+s.serving.length)/(s.counters*6))),counters:s.counters,avg:Math.round(s.avg*10)/10,waiting:s.waiting.length,served:s.served,eta:e,level:lvl(s,e),trend:s.trend.slice(),serving:s.serving.map(function(t){return {id:t.id,token:t.token,name:t.name};}),next:s.waiting.slice(0,4).map(function(t){return t.token;})};}
+function tj(t){if(!t)return {status:'UNKNOWN'};var s=byId[t.svc];var pos=s.waiting.indexOf(t)+1;return {id:t.id,token:t.token,name:t.name,svc:s.id,svcName:s.name,status:t.status,position:pos,ahead:Math.max(0,pos-1),eta:t.status==='WAITING'?eta(s,pos):0,counters:s.counters};}
+window.fetch=function(path){return new Promise(function(res){
+ var u=new URL(path,'http://x'),p=u.searchParams,r,s=byId[p.get('svc')];
+ var STAFF={'/api/next':1,'/api/complete':1,'/api/walkin':1,'/api/setqueue':1,'/api/counters':1,'/api/auto':1,'/api/sim':1,'/api/setpin':1};
+ if(STAFF[u.pathname]){var sid=sessions[p.get('key')];var okk=u.pathname==='/api/sim'?!!sid:(!!s&&sid===s.id);if(!okk){res({json:function(){return Promise.resolve({error:'Owner sign-in required'});}});return;}}
+ switch(u.pathname){
+  case '/api/login': if(!s){r={error:'Unknown service'};break;} if(!s.pin){r={error:'This place has no owner yet. Use Set up my place.'};break;} var now=Date.now(); if(now<s.lockUntil){r={error:'Too many wrong attempts. Try again in '+(Math.floor((s.lockUntil-now)/1000)+1)+' seconds'};break;} if(s.pin!==p.get('pin')){if(++s.fails>=5){s.fails=0;s.lockUntil=now+60000;}r={error:'Wrong PIN'};break;} s.fails=0; var key=Math.random().toString(16).slice(2)+Date.now().toString(16); sessions[key]=s.id; r={key:key,svc:s.id,name:s.name};break;
+  case '/api/claim': if(!s){r={error:'Unknown service'};break;} if(s.pin){r={error:'This place already has an owner. Sign in instead.'};break;} var cn=Date.now(); if(cn<clock){r={error:'Too many wrong setup codes. Try again in '+(Math.floor((clock-cn)/1000)+1)+' seconds'};break;} if(p.get('code')!==SETUP){if(++cfails>=5){cfails=0;clock=cn+60000;}r={error:'Wrong setup code'};break;} cfails=0; if(!/^[0-9]{4,8}$/.test(p.get('pin')||'')){r={error:'PIN must be 4 to 8 digits'};break;} s.pin=p.get('pin'); savePins(); var ck=Math.random().toString(16).slice(2)+Date.now().toString(16); sessions[ck]=s.id; r={key:ck,svc:s.id,name:s.name};break;
+  case '/api/setpin': if(!/^[0-9]{4,8}$/.test(p.get('pin')||'')){r={error:'PIN must be 4 to 8 digits'};break;} s.pin=p.get('pin'); savePins(); Object.keys(sessions).forEach(function(k){if(sessions[k]===s.id&&k!==p.get('key'))delete sessions[k];}); r={ok:true};break;
+  case '/api/me': var mid=sessions[p.get('key')]; r=mid?{svc:mid}:{error:'Owner sign-in required'};break;
+  case '/api/logout': delete sessions[p.get('key')]; r={ok:true};break;
+  case '/api/services': r={sim:sim,speed:speed,services:S.map(sj)};break;
+  case '/api/join': var nm=(p.get('name')||'').trim()||'Guest'; if(s){var jt=join(s,nm.slice(0,24));jt.app=true;r=tj(jt);}else r={error:'Unknown service'};break;
+  case '/api/ticket': r=tj(tickets[p.get('id')]);break;
+  case '/api/leave': var t=tickets[p.get('id')];if(t){var sv=byId[t.svc],i=sv.waiting.indexOf(t);if(i>=0){sv.waiting.splice(i,1);t.status='LEFT';}}r=tj(t);break;
+  case '/api/next': var c=s&&callNext(s);r={called:c?c.token:null};break;
+  case '/api/complete': if(s)s.serving.slice().forEach(function(t){if(t.id===p.get('id'))complete(s,t);});r={ok:true};break;
+  case '/api/walkin': r=s?tj(join(s,'Walk-in')):{error:'Unknown service'};break;
+  case '/api/setqueue': if(s){var n=Math.max(0,Math.min(200,parseInt(p.get('count'),10)||0));s.manual=true;while(s.waiting.length<n)join(s,'Walk-in');while(s.waiting.length>n){var k=-1;for(var i=s.waiting.length-1;i>=0;i--){if(!s.waiting[i].app){k=i;break;}}if(k<0)break;s.waiting[k].status='LEFT';s.waiting.splice(k,1);}r=sj(s);}else r={error:'Unknown service'};break;
+  case '/api/counters': if(s){s.counters=Math.max(1,Math.min(30,parseInt(p.get('n'),10)||1));r=sj(s);}else r={error:'Unknown service'};break;
+  case '/api/auto': if(s){s.manual=p.get('on')!=='1';r=sj(s);}else r={error:'Unknown service'};break;
+  case '/api/sim': sim=p.get('on')==='1';r={sim:sim};break;
+  default: r={error:'not found'};
+ }
+ res({json:function(){return Promise.resolve(r);}});
+});};
+})();
+
+</script>
+<script>
+const $ = s => document.querySelector(s);
+const KIND = {restaurant:{label:'Restaurant', unit:'tables'}, government:{label:'Government office', unit:'counters'}, shop:{label:'Shop', unit:'billing counters'}};
+const TAGS = {'saravana-bhavan':'South Indian, Meals, Sweets','buhari':'Biryani, Chinese, Mughlai','murugan-idli':'Idli, Tiffin, South Indian','anjappar':'Chettinad, Biryani, Non-veg',
+ 'passport':'Passport, Visa services','rto':'Licence, Vehicle registration','aadhaar':'Aadhaar enrolment, Updates','tneb':'Electricity bills, New connection','registrar':'Property registration, Documents',
+ 'pothys':'Sarees, Textiles, Fabrics','nalli':'Silk sarees, Weddings','grand-sweets':'Sweets, Snacks, Gifting'};
+const GRAD = {restaurant:[['#f6903a','#e23744'],['#f2b24a','#cf4a2e'],['#df5b57','#8f2a3c']], government:[['#4a7bc0','#27456f'],['#4f9494','#2a5555']], shop:[['#b153b1','#5b2a86'],['#dc5f86','#7a2a5a'],['#cf9a42','#7a4a1f']]};
+
+let data = {sim:true, services:[]}, tk = null, myTicket = null, startPos = 0, ownerKey = null, ownerSvc = null;
+let kind = 'all', term = '', sortBy = 'wait', tab = 'home', flags = {}, joinParam = null, sheetMode = null, sheetId = null;
+try { myTicket = localStorage.getItem('qf_ticket'); startPos = +localStorage.getItem('qf_start') || 0; } catch(e) {}
+try { ownerKey = sessionStorage.getItem('qf_key'); ownerSvc = sessionStorage.getItem('qf_osvc'); } catch(e) {}
+try { joinParam = new URLSearchParams(location.search).get('join'); } catch(e) {}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+async function api(path, post){ const r = await fetch(path, post ? {method:'POST'} : undefined); return r.json(); }
+async function sapi(path){
+  const r = await api(path + '&key=' + encodeURIComponent(ownerKey || ''), true);
+  if(r && r.error && /sign-in/i.test(r.error)) dropOwner();
+  return r;
+}
+function dropOwner(){
+  ownerKey = null; ownerSvc = null;
+  try { sessionStorage.removeItem('qf_key'); sessionStorage.removeItem('qf_osvc'); } catch(e) {}
+  $('#staffList').dataset.sig = '';
+}
+async function verifyOwner(){
+  if(!ownerKey) return;
+  try { const r = await api('/api/me?key=' + encodeURIComponent(ownerKey)); if(r.error) dropOwner(); else ownerSvc = r.svc; } catch(e) {}
+}
+const place = id => data.services.find(s => s.id === id);
+const tagsOf = s => TAGS[s.id] || KIND[s.kind].label;
+const levelText = l => l === 'low' ? 'Quiet' : l === 'moderate' ? 'Busy' : 'Crowded';
+function hash(s){ let h = 0; for(const c of s) h = (h*31 + c.charCodeAt(0)) >>> 0; return h; }
+function grad(s){ const g = GRAD[s.kind], p = g[hash(s.id) % g.length]; return 'linear-gradient(135deg,'+p[0]+','+p[1]+')'; }
+
+function art(k){
+  const head = '<svg class="art" viewBox="0 0 300 160" preserveAspectRatio="xMidYMid slice" aria-hidden="true">';
+  if(k === 'restaurant') return head + '<g fill="#fff" fill-opacity=".2"><circle cx="215" cy="92" r="54"/><circle cx="215" cy="92" r="36"/><rect x="92" y="34" width="7" height="96" rx="3.5"/><rect x="74" y="34" width="5" height="40" rx="2.5"/><rect x="113" y="34" width="5" height="40" rx="2.5"/><rect x="132" y="34" width="9" height="96" rx="4.5"/></g></svg>';
+  if(k === 'government'){ let c = ''; for(let i = 0; i < 5; i++) c += '<rect x="'+(78+i*34)+'" y="72" width="14" height="52" rx="2"/>';
+    return head + '<g fill="#fff" fill-opacity=".2"><path d="M150 26L262 64H38z"/>'+c+'<rect x="52" y="128" width="196" height="12" rx="3"/><rect x="40" y="142" width="220" height="10" rx="3"/></g></svg>'; }
+  let st = ''; for(let i = 0; i < 6; i++) st += '<rect x="'+(50+i*33)+'" y="38" width="33" height="30" fill-opacity="'+(i%2 ? '.34' : '.16')+'"/>';
+  return head + '<g fill="#fff">'+st+'<rect x="58" y="76" width="184" height="62" rx="4" fill-opacity=".16"/><rect x="74" y="88" width="56" height="50" rx="3" fill-opacity=".22"/><rect x="146" y="88" width="80" height="34" rx="3" fill-opacity=".22"/></g></svg>';
+}
+
+function spark(points){
+  if(!points.length) return '<svg class="spark"></svg>';
+  const max = Math.max(4, ...points), h = 30;
+  const xs = points.map((v,i)=> (i/Math.max(1,points.length-1)*100).toFixed(1)+','+(h-(v/max)*(h-4)-2).toFixed(1));
+  return '<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none"><polyline fill="none" stroke="var(--brand)" stroke-width="1.8" vector-effect="non-scaling-stroke" points="'+xs.join(' ')+'"/></svg>';
+}
+
+function trendOf(s){
+  const t = s.trend;
+  if(t.length < 6) return ['flat', 'Queue is steady right now'];
+  const avg = a => a.reduce((x,y)=>x+y,0)/a.length;
+  const d = avg(t.slice(-3)) - avg(t.slice(-6,-3));
+  if(d >= 1) return ['up', 'Getting busier, the wait is growing'];
+  if(d <= -1) return ['down', 'Getting quieter, the wait is dropping'];
+  return ['flat', 'Queue is steady right now'];
+}
+
+function visible(){
+  const l = data.services.filter(s => (kind === 'all' || s.kind === kind) && (!term || (s.name+' '+s.area+' '+tagsOf(s)).toLowerCase().includes(term))
+    && (!flags.quiet || s.level === 'low') && (!flags.top || s.rating >= 4) && (!flags.fast || s.eta < 10));
+  l.sort(sortBy === 'wait' ? (a,b)=>a.eta-b.eta : sortBy === 'rating' ? (a,b)=>b.rating-a.rating : (a,b)=>a.name.localeCompare(b.name));
+  return l;
+}
+
+function renderList(){
+  const l = visible();
+  $('#count').textContent = l.length + (l.length === 1 ? ' place' : ' places') + ' to queue at';
+  $('#list').innerHTML = l.length ? l.map(s => { const tr = trendOf(s); return `
+    <article class="pcard" data-open="${esc(s.id)}" tabindex="0">
+      <div class="hero" style="background:${grad(s)}">${art(s.kind)}<div class="scrim"></div>
+        <span class="badge ${s.level}"><i></i>${levelText(s.level)}</span>
+        <span class="hname">${KIND[s.kind].label}</span>
+        <span class="eta">${s.eta} min wait</span></div>
+      <div class="pbody">
+        <div class="row"><h3>${esc(s.name)}</h3><span class="rate">${s.rating.toFixed(1)} &#9733;</span></div>
+        <div class="sub">${esc(tagsOf(s))}</div>
+        <div class="sub">${esc(s.area)} &middot; ${esc(s.hours)}</div>
+        <div class="meta"><span><b>${s.waiting}</b> in queue &middot; <b>${s.serving.length}/${s.counters}</b> ${KIND[s.kind].unit} busy</span><button class="primary" data-join="${esc(s.id)}">Join</button></div>
+      </div>
+      <div class="strip ${tr[0]}">${tr[1]}${s.manual ? ' &middot; Updated by the shop' : ''}</div>
+    </article>`; }).join('') : '<div class="empty">No places match. Try clearing a filter.</div>';
+}
+
+function staffCard(s){
+  return `<article class="panel">
+      <div class="row"><h3>${esc(s.name)}</h3><span class="sub">${s.served} served &middot; avg ${s.avg} min</span></div>
+      ${s.manual ? `<div class="manual"><span>Queue is set by the shop</span><button data-auto="${esc(s.id)}">Back to demo traffic</button></div>` : ''}
+      <div class="stepper"><span><b>People in queue</b></span>
+        <div class="step2"><button data-q="${esc(s.id)}|-1" aria-label="Remove one person">&minus;</button>
+          <input type="number" id="qin-${esc(s.id)}" min="0" max="200" value="${s.waiting}" aria-label="People in queue">
+          <button data-q="${esc(s.id)}|1" aria-label="Add one person">+</button>
+          <button class="primary" data-setq="${esc(s.id)}">Set</button></div></div>
+      <p class="note">Customers who joined from the app stay in line when you lower the number.</p>
+      <div class="stepper"><span><b>${esc(KIND[s.kind].unit)} open</b></span>
+        <div class="step2"><button data-c="${esc(s.id)}|-1" aria-label="Close one">&minus;</button>
+          <input type="number" id="cin-${esc(s.id)}" min="1" max="30" value="${s.counters}" aria-label="Counters open">
+          <button data-c="${esc(s.id)}|1" aria-label="Open one">+</button>
+          <button data-setc="${esc(s.id)}">Set</button></div></div>
+      <div class="staff-row">${s.serving.map(t=>`<span class="tag">${esc(t.token)} ${esc(t.name)}</span><button data-done="${esc(s.id)}|${esc(t.id)}">Complete</button>`).join('') || '<span class="mute">Nobody being served</span>'}</div>
+      <div class="staff-row"><button class="primary" data-next="${esc(s.id)}">Call next</button><button data-walk="${esc(s.id)}">Add walk-in</button></div>
+    </article>`;
+}
+
+function loginForm(){
+  const sel = $('#lsvc'); if(!sel) return;
+  const s = place(sel.value); const f = $('#lform'); if(!s || !f) return;
+  f.innerHTML = s.claimed
+    ? `<p class="note" style="font-size:13px">Enter the PIN you set for this place.</p>
+       <input type="password" id="lpin" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="PIN" aria-label="PIN">
+       <button class="primary" data-login="1" style="padding:12px">Sign in</button>`
+    : `<p class="note" style="font-size:13px">This place has no owner yet. Set a PIN to take control of its queue. You need the setup code from the administrator.</p>
+       <input type="password" id="ccode" autocomplete="off" placeholder="Setup code" aria-label="Setup code">
+       <input type="password" id="cpin" inputmode="numeric" autocomplete="new-password" maxlength="8" placeholder="Choose a PIN (4 to 8 digits)" aria-label="Choose a PIN">
+       <input type="password" id="cpin2" inputmode="numeric" autocomplete="new-password" maxlength="8" placeholder="Repeat the PIN" aria-label="Repeat the PIN">
+       <button class="primary" data-claim="1" style="padding:12px">Set up my place</button>`;
+  $('#lerr').textContent = '';
+}
+
+function staffCard(s){
+  return `<article class="panel">
+      <div class="row"><h3>${esc(s.name)}</h3><span class="sub">${s.served} served &middot; avg ${s.avg} min</span></div>
+      ${s.manual ? `<div class="manual"><span>Queue is set by the shop</span><button data-auto="${esc(s.id)}">Back to demo traffic</button></div>` : ''}
+      <div class="stepper"><span><b>People in queue</b></span>
+        <div class="step2"><button data-q="${esc(s.id)}|-1" aria-label="Remove one person">&minus;</button>
+          <input type="number" id="qin-${esc(s.id)}" min="0" max="200" value="${s.waiting}" aria-label="People in queue">
+          <button data-q="${esc(s.id)}|1" aria-label="Add one person">+</button>
+          <button class="primary" data-setq="${esc(s.id)}">Set</button></div></div>
+      <p class="note">Customers who joined from the app stay in line when you lower the number.</p>
+      <div class="stepper"><span><b>${esc(KIND[s.kind].unit)} open</b></span>
+        <div class="step2"><button data-c="${esc(s.id)}|-1" aria-label="Close one">&minus;</button>
+          <input type="number" id="cin-${esc(s.id)}" min="1" max="30" value="${s.counters}" aria-label="Counters open">
+          <button data-c="${esc(s.id)}|1" aria-label="Open one">+</button>
+          <button data-setc="${esc(s.id)}">Set</button></div></div>
+      <div class="staff-row">${s.serving.map(t=>`<span class="tag">${esc(t.token)} ${esc(t.name)}</span><button data-done="${esc(s.id)}|${esc(t.id)}">Complete</button>`).join('') || '<span class="mute">Nobody being served</span>'}</div>
+      <div class="staff-row"><button class="primary" data-next="${esc(s.id)}">Call next</button><button data-walk="${esc(s.id)}">Add walk-in</button></div>
+    </article>`;
+}
+
+function renderStaff(){
+  const box = $('#staffList');
+  if(!data.services.length) return;
+  const mine = ownerKey ? place(ownerSvc) : null;
+  if(!mine){
+    if(box.dataset.sig === 'out') return;
+    box.dataset.sig = 'out';
+    const groups = ['restaurant','government','shop'].map(k => '<optgroup label="'+KIND[k].label+'s">' + data.services.filter(s => s.kind === k).map(s => '<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join('') + '</optgroup>').join('');
+    box.innerHTML = `<article class="panel" style="max-width:420px">
+      <h3>Owner access</h3>
+      <p class="note" style="font-size:13px">Only the shop owner or staff can change a queue. Choose your place first.</p>
+      <select id="lsvc" class="chip" aria-label="Your place" style="width:100%">${groups}</select>
+      <div id="lform" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div id="lerr" class="note" style="color:var(--high)" role="alert"></div></article>`;
+    loginForm();
+    return;
+  }
+  const f = document.activeElement;
+  if(f && f.tagName === 'INPUT' && box.contains(f)) return;
+  const np = $('#npin'); if(np && np.value) return;
+  box.dataset.sig = 'in';
+  box.innerHTML = `<article class="panel" style="grid-column:1/-1"><div class="stepper"><span><b>Signed in as ${esc(mine.name)}</b></span>
+      <div class="step2"><button id="simToggle">Demo traffic: ${data.sim ? 'on' : 'off'}</button><button data-logout="1">Sign out</button></div></div>
+      <div class="stepper"><span><b>Change my PIN</b></span>
+      <div class="step2"><input type="password" id="npin" inputmode="numeric" maxlength="8" autocomplete="new-password" placeholder="New PIN" aria-label="New PIN" style="width:120px"><button data-setpin="1">Change</button></div></div>
+      <div id="perr" class="note" role="status"></div></article>` + staffCard(mine);
+}
+
+function renderTicket(){
+  const el = $('#ticket');
+  if(!myTicket || !tk){ el.innerHTML = '<h2 class="sec">My token</h2><div class="panel center"><p class="mute" style="margin:0">You are not in a queue. Pick a place on Discover and tap Join.</p><button class="primary" data-tab="home">Find a queue</button></div>'; return; }
+  const t = tk;
+  const stage = t.status === 'DONE' ? 3 : t.status === 'SERVING' ? 2 : (t.status === 'WAITING' && t.ahead <= 2) ? 1 : 0;
+  const names = ['Joined','Almost there','Your turn','Done'];
+  const steps = '<div class="steps">'+names.map((n,i)=>'<div class="step'+(i<=stage?' on':'')+'"><i></i>'+n+'</div>').join('')+'</div>';
+  let body;
+  if(t.status === 'WAITING'){
+    const pct = startPos > 0 ? Math.max(4, Math.min(100, Math.round((startPos - t.position + 1)/startPos*100))) : 8;
+    body = `<div class="sub">You are number ${t.position} in line</div>
+      <div class="bar" style="width:100%"><i style="width:${pct}%"></i></div>
+      <div class="stats"><div><b>${t.ahead}</b><span>ahead of you</span></div><div><b>~${t.eta} min</b><span>estimated wait</span></div><div><b>${t.counters}</b><span>counters open</span></div></div>
+      <button data-leave="1">Leave queue</button>`;
+  } else if(t.status === 'SERVING') body = '<div class="banner">It is your turn. Please go to the counter.</div>';
+  else if(t.status === 'DONE') body = '<p class="mute" style="margin:0">All done. Thanks for waiting.</p><button class="primary" data-clear="1">Back to Discover</button>';
+  else body = '<p class="mute" style="margin:0">You left this queue.</p><button class="primary" data-clear="1">Back to Discover</button>';
+  el.innerHTML = `<h2 class="sec">My token</h2><div class="panel center">
+    <div class="sub">${esc(t.svcName)} &middot; ${esc(t.name)}</div><div class="token">${esc(t.token)}</div>${steps}${body}
+    <button data-alerts="1">Enable alerts</button></div>`;
+}
+
+function renderBar(){
+  const b = $('#tbar');
+  const live = tk && (tk.status === 'WAITING' || tk.status === 'SERVING') && tab !== 'ticket';
+  b.hidden = !live;
+  if(!live) return;
+  b.innerHTML = tk.status === 'SERVING'
+    ? `<span><b>${esc(tk.token)}</b><small>${esc(tk.svcName)}</small></span><span><b>Your turn</b><small>Go to the counter</small></span>`
+    : `<span><b>${esc(tk.token)}</b><small>${esc(tk.svcName)}</small></span><span style="text-align:right"><b>${tk.ahead} ahead</b><small>about ${tk.eta} min</small></span>`;
+}
+
+let map = null, markers = {}, fitSig = '', tileFailed = false;
+function mkIcon(s){ return L.divIcon({className:'qmk', html:'<div class="mk '+s.level+'"><span>'+s.waiting+'</span></div>', iconSize:[42,42], iconAnchor:[21,21], popupAnchor:[0,-22]}); }
+function popHtml(s){
+  return '<div class="mpop"><b>'+esc(s.name)+'</b><span class="sub">'+KIND[s.kind].label+' &middot; '+esc(s.area)+'</span>'
+    + '<span><b>'+s.waiting+'</b> in queue &middot; about <b>'+s.eta+' min</b> wait</span>'
+    + '<span class="btns"><button class="primary" data-pjoin="'+esc(s.id)+'">Join</button><button data-pmore="'+esc(s.id)+'">Details</button></span></div>';
+}
+function initMap(){
+  if(map || typeof L === 'undefined') return;
+  map = L.map('lmap', {zoomControl:true, attributionControl:true}).setView([13.0, 80.2], 11);
+  const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+  tiles.on('tileerror', () => { if(!tileFailed){ tileFailed = true; $('#mapnote').hidden = false; } });
+  tiles.on('tileload', () => { if(tileFailed){ tileFailed = false; $('#mapnote').hidden = true; } });
+  map.on('popupopen', e => {
+    const el = e.popup.getElement(); if(!el) return;
+    el.querySelectorAll('[data-pjoin]').forEach(x => x.addEventListener('click', () => { map.closePopup(); openJoin(x.dataset.pjoin); }));
+    el.querySelectorAll('[data-pmore]').forEach(x => x.addEventListener('click', () => { map.closePopup(); openDetail(x.dataset.pmore); }));
+  });
+}
+function updateMap(){
+  if(!map) return;
+  const l = visible().filter(s => typeof s.lat === 'number' && s.lat !== 0);
+  const keep = new Set(l.map(s => s.id));
+  Object.keys(markers).forEach(id => { if(!keep.has(id)){ markers[id].m.remove(); delete markers[id]; } });
+  l.forEach(s => {
+    const key = s.waiting + '|' + s.level + '|' + s.eta;
+    let e = markers[s.id];
+    if(!e){
+      const m = L.marker([s.lat, s.lng], {icon:mkIcon(s), title:s.name, keyboard:true}).addTo(map);
+      m.bindPopup(popHtml(s), {closeButton:true, autoPan:true});
+      e = markers[s.id] = {m:m, key:key};
+    } else if(e.key !== key){
+      e.m.setIcon(mkIcon(s));
+      if(!e.m.isPopupOpen()) e.m.setPopupContent(popHtml(s)); else e.m.setPopupContent(popHtml(s));
+      e.key = key;
+    }
+  });
+  const total = l.reduce((n, s) => n + s.waiting, 0);
+  $('#mapsum').textContent = total + ' waiting across ' + l.length + (l.length === 1 ? ' place' : ' places');
+  const sig = l.map(s => s.id).join(',');
+  if(tab === 'map' && sig !== fitSig && l.length){
+    fitSig = sig;
+    map.invalidateSize();
+    map.fitBounds(L.latLngBounds(l.map(s => [s.lat, s.lng])), {padding:[48,48], maxZoom:15});
+  }
+}
+
+function openSheet(html, cls){ $('#sheetbox').className = 'sheetbox ' + (cls || ''); $('#sheetbox').innerHTML = html; $('#sheet').hidden = false; }
+function closeSheet(){ $('#sheet').hidden = true; sheetMode = null; sheetId = null; }
+
+function renderDetail(){
+  const s = place(sheetId); if(!s) return;
+  const tr = trendOf(s);
+  openSheet(`<div class="dhero" style="background:${grad(s)}">${art(s.kind)}<div class="scrim"></div>
+      <button class="close" data-close="1" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div>
+    <div class="dbody">
+      <div class="row"><div><h2 class="dt">${esc(s.name)}</h2><div class="sub">${esc(tagsOf(s))}</div><div class="sub">${esc(s.area)} &middot; ${esc(s.hours)}</div></div><span class="rate">${s.rating.toFixed(1)} &#9733;</span></div>
+      <div class="stats"><div><b>${s.eta} min</b><span>wait if you join</span></div><div><b>${s.waiting}</b><span>in queue</span></div><div><b>${s.serving.length}/${s.counters}</b><span>${KIND[s.kind].unit} busy</span></div></div>
+      <div class="bar ${s.level}"><i style="width:${s.load}%"></i></div>
+      <div class="sub">Crowd level: <b>${levelText(s.level)}</b> &middot; Now serving: <b>${s.serving.length ? s.serving.map(t=>esc(t.token)).join(', ') : 'none'}</b></div>
+      <div><div class="sub">Recent queue length</div>${spark(s.trend)}</div>
+      <div class="strip ${tr[0]}" style="border-radius:10px">${tr[1]}</div>
+      <div class="btns"><button class="primary" data-join="${esc(s.id)}">Join queue</button><button data-qr="${esc(s.id)}">Show QR</button></div>
+    </div>`, 'full');
+}
+
+function openDetail(id){ sheetMode = 'detail'; sheetId = id; renderDetail(); }
+
+function openQR(id){
+  const s = place(id); if(!s) return;
+  let url = id; try { url = location.origin + location.pathname + '?join=' + id; } catch(e) {}
+  sheetMode = 'qr'; sheetId = id;
+  openSheet(`<h3>${esc(s.name)}</h3><p class="mute" style="margin:0">Scan to join this queue from your phone</p><div id="qr"></div><div class="mute small">${esc(url)}</div><button data-close="1">Close</button>`, 'mid');
+  try { if(window.QRCode) new QRCode($('#qr'), {text:url, width:180, height:180}); } catch(e) {}
+}
+
+function openJoin(id){
+  const s = place(id); if(!s) return;
+  let nm = ''; try { nm = localStorage.getItem('qf_name') || ''; } catch(e) {}
+  sheetMode = 'join'; sheetId = id;
+  openSheet(`<div class="sub">${KIND[s.kind].label}</div><h3>${esc(s.name)}</h3><p class="mute" style="margin:0">${s.waiting} in queue &middot; about ${s.eta} min wait</p>
+    <input type="text" id="jname" placeholder="Your name" maxlength="24" value="${esc(nm)}" aria-label="Your name">
+    <button class="primary" data-confirm="${esc(id)}" style="padding:12px;width:100%">Get my token</button><button data-close="1" style="width:100%">Cancel</button>`, 'mid');
+}
+
+function notify(msg){
+  try { if ('Notification' in window && Notification.permission === 'granted') new Notification('QueueFlow', {body: msg}); } catch(e) {}
+  try { if (navigator.vibrate) navigator.vibrate([200,100,200]); } catch(e) {}
+}
+
+function track(t){
+  if(t.status === 'UNKNOWN'){ tk = null; return; }
+  if(t.status === 'SERVING' && (!tk || tk.status !== 'SERVING')) notify('Token '+t.token+': please go to the counter.');
+  if(t.status === 'WAITING' && t.ahead <= 2 && (!tk || tk.status !== 'WAITING' || tk.ahead > 2)) notify('Almost your turn: '+t.ahead+' ahead of you.');
+  tk = t;
+}
+
+function renderAll(){
+  $('#simTxt').textContent = data.sim ? 'Live' : 'Paused';
+  document.querySelector('.live .dot').classList.toggle('off', !data.sim);
+  renderList(); renderStaff(); renderTicket(); renderBar(); updateMap();
+  if(sheetMode === 'detail') renderDetail();
+}
+
+async function refresh(){
+  try { data = await api('/api/services'); } catch(e) { return; }
+  if(myTicket){ try { track(await api('/api/ticket?id='+encodeURIComponent(myTicket))); } catch(e) {} }
+  renderAll();
+  if(joinParam){ const id = joinParam; joinParam = null; openJoin(id); try { history.replaceState(null, '', location.pathname); } catch(e) {} }
+}
+
+function show(next){
+  tab = next;
+  for(const id of ['home','map','ticket','staff']) $('#'+id).hidden = id !== tab;
+  document.querySelectorAll('.bnav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  window.scrollTo(0, 0);
+  if(tab === 'map'){ initMap(); if(map) setTimeout(() => { map.invalidateSize(); fitSig = ''; updateMap(); }, 30); }
+  renderAll();
+}
+
+document.addEventListener('click', async e => {
+  if(e.target.id === 'sheet'){ closeSheet(); return; }
+  const b = e.target.closest('button');
+  if(!b){ const c = e.target.closest('[data-open]'); if(c) openDetail(c.dataset.open); return; }
+  if(b.dataset.tab) { closeSheet(); show(b.dataset.tab); }
+  else if(b.dataset.kind){ kind = b.dataset.kind; document.querySelectorAll('[data-kind]').forEach(c => c.classList.toggle('on', c.dataset.kind === kind)); renderList(); updateMap(); }
+  else if(b.dataset.flag){ flags[b.dataset.flag] = !flags[b.dataset.flag]; b.classList.toggle('on', !!flags[b.dataset.flag]); renderList(); }
+  else if(b.dataset.join) openJoin(b.dataset.join);
+  else if(b.dataset.qr) openQR(b.dataset.qr);
+  else if(b.dataset.close) closeSheet();
+  else if(b.dataset.confirm){
+    const name = ($('#jname').value || '').trim();
+    try { localStorage.setItem('qf_name', name); } catch(x) {}
+    const t = await api('/api/join?svc='+encodeURIComponent(b.dataset.confirm)+'&name='+encodeURIComponent(name), true);
+    myTicket = t.id; startPos = t.position; tk = null;
+    try { localStorage.setItem('qf_ticket', myTicket); localStorage.setItem('qf_start', String(startPos)); } catch(x) {}
+    closeSheet(); await refresh(); show('ticket');
+  }
+  else if(b.dataset.q){ const [id,d] = b.dataset.q.split('|'); const s = place(id); if(s){ await sapi('/api/setqueue?svc='+encodeURIComponent(id)+'&count='+Math.max(0, s.waiting + Number(d))); refresh(); } }
+  else if(b.dataset.setq){ const v = parseInt($('#qin-'+b.dataset.setq).value, 10); if(!isNaN(v) && v >= 0){ await sapi('/api/setqueue?svc='+encodeURIComponent(b.dataset.setq)+'&count='+v); } document.activeElement.blur(); refresh(); }
+  else if(b.dataset.c){ const [id,d] = b.dataset.c.split('|'); const s = place(id); if(s){ await sapi('/api/counters?svc='+encodeURIComponent(id)+'&n='+Math.max(1, s.counters + Number(d))); refresh(); } }
+  else if(b.dataset.setc){ const v = parseInt($('#cin-'+b.dataset.setc).value, 10); if(!isNaN(v) && v >= 1){ await sapi('/api/counters?svc='+encodeURIComponent(b.dataset.setc)+'&n='+v); } document.activeElement.blur(); refresh(); }
+  else if(b.dataset.auto){ await sapi('/api/auto?svc='+encodeURIComponent(b.dataset.auto)+'&on=1'); refresh(); }
+  else if(b.dataset.next){ await sapi('/api/next?svc='+encodeURIComponent(b.dataset.next)); refresh(); }
+  else if(b.dataset.walk){ await sapi('/api/walkin?svc='+encodeURIComponent(b.dataset.walk)); refresh(); }
+  else if(b.dataset.done){ const [s,i] = b.dataset.done.split('|'); await sapi('/api/complete?svc='+encodeURIComponent(s)+'&id='+encodeURIComponent(i)); refresh(); }
+  else if(b.dataset.leave){ await api('/api/leave?id='+encodeURIComponent(myTicket), true); refresh(); }
+  else if(b.dataset.clear){ myTicket = null; tk = null; try { localStorage.removeItem('qf_ticket'); localStorage.removeItem('qf_start'); } catch(x) {} show('home'); }
+  else if(b.dataset.alerts){ try { await Notification.requestPermission(); } catch(x) {} }
+  else if(b.id === 'simToggle'){ await sapi('/api/sim?on='+(data.sim ? '0' : '1')); refresh(); }
+  else if(b.dataset.claim){
+    const pin = $('#cpin').value, pin2 = $('#cpin2').value;
+    if(!/^[0-9]{4,8}$/.test(pin)){ $('#lerr').textContent = 'PIN must be 4 to 8 digits'; return; }
+    if(pin !== pin2){ $('#lerr').textContent = 'The two PINs do not match'; return; }
+    const r = await api('/api/claim?svc='+encodeURIComponent($('#lsvc').value)+'&code='+encodeURIComponent($('#ccode').value)+'&pin='+encodeURIComponent(pin), true);
+    if(r.error){ $('#lerr').textContent = r.error; return; }
+    ownerKey = r.key; ownerSvc = r.svc;
+    try { sessionStorage.setItem('qf_key', ownerKey); sessionStorage.setItem('qf_osvc', ownerSvc); } catch(x) {}
+    $('#staffList').dataset.sig = ''; await refresh();
+  }
+  else if(b.dataset.setpin){
+    const pin = $('#npin').value;
+    if(!/^[0-9]{4,8}$/.test(pin)){ $('#perr').textContent = 'PIN must be 4 to 8 digits'; return; }
+    const r = await sapi('/api/setpin?svc='+encodeURIComponent(ownerSvc)+'&pin='+encodeURIComponent(pin));
+    if(r.error){ $('#perr').textContent = r.error; return; }
+    $('#npin').value = ''; $('#perr').textContent = 'PIN changed. Use it the next time you sign in.';
+  }
+  else if(b.dataset.login){
+    const r = await api('/api/login?svc='+encodeURIComponent($('#lsvc').value)+'&pin='+encodeURIComponent($('#lpin').value), true);
+    if(r.error){ $('#lerr').textContent = r.error; $('#lpin').value = ''; return; }
+    ownerKey = r.key; ownerSvc = r.svc;
+    try { sessionStorage.setItem('qf_key', ownerKey); sessionStorage.setItem('qf_osvc', ownerSvc); } catch(x) {}
+    $('#staffList').dataset.sig = ''; refresh();
+  }
+  else if(b.dataset.logout){ try { await api('/api/logout?key='+encodeURIComponent(ownerKey || ''), true); } catch(x) {} dropOwner(); refresh(); }
+});
+document.addEventListener('change', e => { if(e.target.id === 'lsvc') loginForm(); });
+document.addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.matches('[data-open]')) openDetail(e.target.dataset.open); if(e.key === 'Escape') closeSheet(); if(e.key === 'Enter' && e.target.id === 'lpin') document.querySelector('[data-login]').click(); });
+$('#search').addEventListener('input', e => { term = e.target.value.trim().toLowerCase(); renderList(); });
+$('#sort').addEventListener('change', e => { sortBy = e.target.value; renderList(); });
+
+try { if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) navigator.serviceWorker.register('sw.js').catch(function(){}); } catch(e) {}
+(async () => { await verifyOwner(); refresh(); setInterval(refresh, 2000); })();
+</script>
+</body>
+</html>
